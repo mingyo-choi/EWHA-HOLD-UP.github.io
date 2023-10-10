@@ -67,90 +67,97 @@
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
       </script>
+      <script>
+        const db = firebase.firestore();
+  
+        // 데이터를 실시간으로 표시하는 함수
+        function displayData() {
+          const textList = document.getElementById('text-list');
+          textList.innerHTML = '';
+          db.collection('Question').get().then((snapshot) => {
+            const sortedData = snapshot.docs.map(doc => doc.data()).sort((a, b) => {
+              const puzzleNoA = parseInt(a.puzzleNo, 10); // 숫자로 변환
+              const puzzleNoB = parseInt(b.puzzleNo, 10); // 숫자로 변환 
+              const questionNoA = parseInt(a.questionNo, 10); // 숫자로 변환
+              const questionNoB = parseInt(b.questionNo, 10); // 숫자로 변환
 
-<script>
-  const db = firebase.firestore();
-
-  // 데이터를 실시간으로 표시하는 함수
-  function displayData() {
-    const textList = document.getElementById('text-list');
-    textList.innerHTML = ''; // 표 초기화
-    db.collection('Question').get().then((snapshot) => {
-      const sortedData = snapshot.docs.map(doc => doc.data()).sort((a, b) => {
-        // 먼저 PuzzleNo로 정렬, 동일한 경우 QuestionNo로 정렬
-        if (a.puzzleNo === b.puzzleNo) {
-          return a.questionNo - b.questionNo;
-        }
-        return a.puzzleNo - b.puzzleNo;
-      });
-
-      sortedData.forEach((data) => {
-        var 질문 = `
-          <tr>
-            <td>${data.puzzleNo}</td>
-            <td>${data.questionNo}</td>
-            <td class="edit-question-content" contenteditable="true">${data.questionContent}</td>
-            <td><button class="save-button" style="font-size: 12px; white-space: nowrap;">저장</button></td>
-          </tr>`;
-        textList.innerHTML += 질문;
-      });
-
-      // 수정된 내용을 파이어베이스에 저장
-      const saveButtons = document.querySelectorAll('.save-button');
-      saveButtons.forEach(button => {
-        button.addEventListener('click', function() {
-          const editedContent = this.parentElement.previousElementSibling.textContent;
-          const index = [...this.parentElement.parentElement.parentElement.children].indexOf(this.parentElement.parentElement);
-          const docId = snapshot.docs[index].id;
-
-          // 파이어베이스에 저장
-          db.collection('Question').doc(docId).update({
-            questionContent: editedContent
+              // PuzzleNo로 정렬, 동일한 경우 QuestionNo로 정렬
+              if (puzzleNoA !== puzzleNoB) {    
+                return puzzleNoA - puzzleNoB;  
+              } else {   
+                return questionNoA - questionNoB;
+              }
+            });
+  
+            sortedData.forEach((data, index) => {
+              var 질문 = `
+                <tr>
+                  <td>${data.puzzleNo}</td>
+                  <td>${data.questionNo}</td>
+                  <td class="edit-question-content" contenteditable="true">${data.questionContent}</td>
+                  <td><button class="save-button" data-index="${index}" data-puzzleNo="${data.puzzleNo}" data-questionNo="${data.questionNo}" style="font-size: 12px; white-space: nowrap;">저장</button></td>
+                </tr>`;
+              textList.innerHTML += 질문;
+            });
+  
+            const saveButtons = document.querySelectorAll('.save-button');
+            saveButtons.forEach(button => {
+              button.addEventListener('click', function() {
+                const editedContent = this.parentElement.previousElementSibling.textContent;
+                const puzzleNo = Number(this.getAttribute('data-puzzleNo'));
+                const questionNo = Number(this.getAttribute('data-questionNo'));
+  
+                // 조건을 사용하여 문서 찾기
+                db.collection('Question')
+                  .where('puzzleNo', '==', puzzleNo)
+                  .where('questionNo', '==', questionNo)
+                  .get()
+                  .then((querySnapshot) => {
+                    querySnapshot.forEach((doc) => {
+                      // 문서 업데이트
+                      db.collection('Question').doc(doc.id).update({
+                        questionContent: editedContent
+                      });
+                    });
+                  });
+              });
+            });
           });
+          
+        }
+  
+        const inputForm = document.getElementById('input-form');
+        const submitButton = document.querySelector('.btn.btn-primary');
+  
+        inputForm.addEventListener('input', function() {
+          const puzzleNo = document.getElementById('puzzleNo').value;
+          const questionNo = document.getElementById('questionNo').value;
+          const questionContent = document.getElementById('questionContent').value;
+          
         });
-      });
-    });
-  }
-
-  // Form submit 이벤트 처리
-  const inputForm = document.getElementById('input-form');
-  const submitButton = document.getElementById('submitButton');
-
-  inputForm.addEventListener('input', function() {
-    // 입력 필드가 모두 채워졌을 때 확인 버튼 활성화
-    const puzzleNo = document.getElementById('puzzleNo').value;
-    const questionNo = document.getElementById('questionNo').value;
-    const questionContent = document.getElementById('questionContent').value;
-    submitButton.disabled = !(puzzleNo && questionNo && questionContent);
-  });
-
-  inputForm.addEventListener('submit', function(event) {
-    event.preventDefault();
-
-    const puzzleNo = document.getElementById('puzzleNo').value;
-    const questionNo = document.getElementById('questionNo').value;
-    const questionContent = document.getElementById('questionContent').value;
-
-    // Firebase에 데이터 추가
-    db.collection('Question').add({
-      puzzleNo: puzzleNo,
-      questionNo: questionNo,
-      questionContent: questionContent
-    }).then(() => {
-      displayData(); // 데이터가 추가된 후 화면을 업데이트
-    });
-
-    // 입력 필드를 초기화
-    document.getElementById('puzzleNo').value = '';
-    document.getElementById('questionNo').value = '';
-    document.getElementById('questionContent').value = '';
-
-    // 버튼 비활성화
-    submitButton.disabled = true;
-  });
-
-  // 초기 데이터 표시
-  displayData();
-</script>
+  
+        inputForm.addEventListener('submit', function(event) {
+          event.preventDefault();
+  
+          const puzzleNo = document.getElementById('puzzleNo').value;
+          const questionNo = document.getElementById('questionNo').value;
+          const questionContent = document.getElementById('questionContent').value;
+  
+          db.collection('Question').add({
+            puzzleNo: Number(puzzleNo), // Convert to number
+            questionNo: Number(questionNo), // Convert to number
+            questionContent: questionContent
+          }).then(() => {
+            displayData();
+          });
+  
+          document.getElementById('puzzleNo').value = '';
+          document.getElementById('questionNo').value = '';
+          document.getElementById('questionContent').value = '';
+  
+        });
+  
+        displayData();
+      </script>
   </body>
 </html>
