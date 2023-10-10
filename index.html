@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Question 관리 Web</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <style>
+      #questionNo, #puzzleNo {
+        width: 40px; 
+      }
+      #questionContent {
+        width: 680px;
+      }
+    </style>
+  </head>
+  <body>
+
+    <div class="container mt-3">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>PuzzleNo</th>
+            <th>QuestionNo</th>
+            <th>질문 내용</th>
+          </tr>
+        </thead>
+        <tbody id="text-list"></tbody>
+      </table>
+      <form id="input-form" class="mb-3">
+        <div class="row">
+          <div class="col">
+            <input type="text" class="form-control" id="puzzleNo">
+          </div>
+          <div class="col">
+            <input type="text" class="form-control" id="questionNo">
+          </div>
+          <div class="col">
+            <input type="text" class="form-control" id="questionContent">
+          </div>
+          <div class="col mt-1">
+            <button type="submit" class="btn btn-primary btn-sm d-inline"> 확인</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-app.js"></script>  
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-storage.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+
+    <script>
+      var firebaseConfig = {
+          apiKey: "AIzaSyAeXHA4qY_z9yUN726E__hNRYNOcF56tms",
+          authDomain: "flog-e708e.firebaseapp.com",
+          projectId: "flog-e708e",
+          storageBucket: "flog-e708e.appspot.com",
+          messagingSenderId: "343328419455",
+          appId: "1:343328419455:web:d5fea4af8c6210d482594a",
+          measurementId: "G-SB6FHXHJKL"
+        };
+      
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+      </script>
+
+<script>
+  const db = firebase.firestore();
+
+  // 데이터를 실시간으로 표시하는 함수
+  function displayData() {
+    const textList = document.getElementById('text-list');
+    textList.innerHTML = ''; // 표 초기화
+    db.collection('Question').get().then((snapshot) => {
+      const sortedData = snapshot.docs.map(doc => doc.data()).sort((a, b) => {
+        // 먼저 PuzzleNo로 정렬, 동일한 경우 QuestionNo로 정렬
+        if (a.puzzleNo === b.puzzleNo) {
+          return a.questionNo - b.questionNo;
+        }
+        return a.puzzleNo - b.puzzleNo;
+      });
+
+      sortedData.forEach((data) => {
+        var 질문 = `
+          <tr>
+            <td>${data.puzzleNo}</td>
+            <td>${data.questionNo}</td>
+            <td class="edit-question-content" contenteditable="true">${data.questionContent}</td>
+            <td><button class="save-button" style="font-size: 12px; white-space: nowrap;">저장</button></td>
+          </tr>`;
+        textList.innerHTML += 질문;
+      });
+
+      // 수정된 내용을 파이어베이스에 저장
+      const saveButtons = document.querySelectorAll('.save-button');
+      saveButtons.forEach(button => {
+        button.addEventListener('click', function() {
+          const editedContent = this.parentElement.previousElementSibling.textContent;
+          const index = [...this.parentElement.parentElement.parentElement.children].indexOf(this.parentElement.parentElement);
+          const docId = snapshot.docs[index].id;
+
+          // 파이어베이스에 저장
+          db.collection('Question').doc(docId).update({
+            questionContent: editedContent
+          });
+        });
+      });
+    });
+  }
+
+  // Form submit 이벤트 처리
+  const inputForm = document.getElementById('input-form');
+  const submitButton = document.getElementById('submitButton');
+
+  inputForm.addEventListener('input', function() {
+    // 입력 필드가 모두 채워졌을 때 확인 버튼 활성화
+    const puzzleNo = document.getElementById('puzzleNo').value;
+    const questionNo = document.getElementById('questionNo').value;
+    const questionContent = document.getElementById('questionContent').value;
+    submitButton.disabled = !(puzzleNo && questionNo && questionContent);
+  });
+
+  inputForm.addEventListener('submit', function(event) {
+    event.preventDefault();
+
+    const puzzleNo = document.getElementById('puzzleNo').value;
+    const questionNo = document.getElementById('questionNo').value;
+    const questionContent = document.getElementById('questionContent').value;
+
+    // Firebase에 데이터 추가
+    db.collection('Question').add({
+      puzzleNo: puzzleNo,
+      questionNo: questionNo,
+      questionContent: questionContent
+    }).then(() => {
+      displayData(); // 데이터가 추가된 후 화면을 업데이트
+    });
+
+    // 입력 필드를 초기화
+    document.getElementById('puzzleNo').value = '';
+    document.getElementById('questionNo').value = '';
+    document.getElementById('questionContent').value = '';
+
+    // 버튼 비활성화
+    submitButton.disabled = true;
+  });
+
+  // 초기 데이터 표시
+  displayData();
+</script>
+  </body>
+</html>
